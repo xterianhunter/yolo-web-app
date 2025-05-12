@@ -14,15 +14,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 import os
-import urllib.request
+import gdown
 
 model_path = 'yolov11.pt'
-model_url = 'https://huggingface.co/xterianhunter/yolo-model/resolve/main/yolov11.pt'
+file_id = '1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_'  # Replace with your real file ID
+download_url = f'https://drive.google.com/uc?id={file_id}'
 
 if not os.path.exists(model_path):
-    print("Downloading model from Hugging Face...")
-    urllib.request.urlretrieve(model_url, model_path)
-    print("Download complete.")
+    print("Downloading YOLOv11 model from Google Drive...")
+    gdown.download(download_url, model_path, quiet=False)
+    print("Model download complete.")
+
 
 model = YOLO("model_path")
 
