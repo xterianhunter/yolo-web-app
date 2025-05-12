@@ -14,17 +14,17 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['FRAME_FOLDER'], exist_ok=True)
 
 # Step 1: Download model from Google Drive if not exists
-model_path = 'yolov11.pt'
-drive_file_id = '1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_'  # Replace with your Google Drive file ID
-download_url = f'https://drive.google.com/uc?id={drive_file_id}'
+#model_path = 'yolov11.pt'
+#drive_file_id = '1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_'  # Replace with your Google Drive file ID
+#download_url = f'https://drive.google.com/uc?id={drive_file_id}'
 
-if not os.path.exists(model_path):
-    print("Downloading model from Google Drive...")
-    gdown.download(download_url, model_path, quiet=False)
-    print("Download complete.")
+#if not os.path.exists(model_path):
+#    print("Downloading model from Google Drive...")
+ #   gdown.download(download_url, model_path, quiet=False)
+  #  print("Download complete.")
 
 # Step 2: Load model
-model = YOLO(model_path)
+model = YOLO("yolov11.pt")
 
 # Webcam status flag
 webcam_active = False
