@@ -17,7 +17,7 @@ import os
 import urllib.request
 
 model_path = 'yolov11.pt'
-model_url = 'https://huggingface.co/username/yolo-model/resolve/main/yolov11.pt'
+model_url = 'https://huggingface.co/xterianhunter/yolo-model/resolve/main/yolov11.pt'
 
 if not os.path.exists(model_path):
     print("Downloading model from Hugging Face...")
