@@ -1,129 +1,99 @@
-import os
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
-from werkzeug.utils import secure_filename
-from ultralytics import YOLO
+from flask import Flask, render_template, request, jsonify, Response
 import cv2
-import threading
+import os
+from ultralytics import YOLO
+import gdown
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "realtimekey"
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['FRAME_FOLDER'] = 'static/frames'
 
-# File upload configuration
-UPLOAD_FOLDER = 'static/uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+# Ensure folders exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['FRAME_FOLDER'], exist_ok=True)
 
-import os
-import gdown
-
+# Step 1: Download model from Google Drive if not exists
 model_path = 'yolov11.pt'
-file_id = '1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_'  # Replace with your real file ID
-download_url = f'https://drive.google.com/uc?id={file_id}'
+drive_file_id = 'YOUR_FILE_ID_HERE'  # Replace with your Google Drive file ID
+download_url = f'https://drive.google.com/uc?id={drive_file_id}'
 
 if not os.path.exists(model_path):
-    print("Downloading YOLOv11 model from Google Drive...")
+    print("Downloading model from Google Drive...")
     gdown.download(download_url, model_path, quiet=False)
-    print("Model download complete.")
+    print("Download complete.")
 
+# Step 2: Load model
+model = YOLO(model_path)
 
-model = YOLO("model_path")
-
-# Global flag to manage real-time detection
-detecting = False
-camera_thread = None
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def generate_frames():
-    global detecting
-    cap = cv2.VideoCapture(0)  # Open the webcam
-
-    while True:
-        if not detecting:
-            break
-
-        success, frame = cap.read()
-        if not success:
-            break
-        
-        # Run YOLO object detection on the frame
-        results = model(frame)
-        annotated_frame = results[0].plot()  # Annotate the frame with detection results
-
-        ret, buffer = cv2.imencode('.jpg', annotated_frame)
-        if not ret:
-            continue
-        
-        frame_bytes = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n\r\n')
-
-    cap.release()
+# Webcam status flag
+webcam_active = False
 
 @app.route('/')
 def index():
-    global detecting
-    uploaded_image = session.get("uploaded_image", None)
-    return render_template('index.html', detecting=detecting, uploaded_image=uploaded_image)
+    return render_template('index.html')
 
-@app.route('/start-realtime', methods=['POST'])
-def start_realtime():
-    global detecting, camera_thread
-    detecting = True
-    # Start the camera stream in a separate thread
-    camera_thread = threading.Thread(target=generate_frames)
-    camera_thread.start()
-    flash("✅ Real-time detection started.")
-    return redirect(url_for('index'))
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    if 'image' not in request.files:
+        return "No file part", 400
+    file = request.files['image']
+    if file.filename == '':
+        return "No selected file", 400
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    file.save(file_path)
 
-@app.route('/stop-realtime', methods=['POST'])
-def stop_realtime():
-    global detecting, camera_thread
-    detecting = False
-    if camera_thread is not None:
-        camera_thread.join()  # Ensure the thread is properly closed
-    flash("🛑 Real-time detection stopped.")
-    return redirect(url_for('index'))
+    # Run detection
+    results = model(file_path)
+    result = results[0]
+    annotated_frame = result.plot()
+    result_path = os.path.join(app.config['UPLOAD_FOLDER'], f"result_{file.filename}")
+    cv2.imwrite(result_path, annotated_frame)
+
+    return render_template('index.html', result_image=result_path)
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/upload-image', methods=['POST'])
-def upload_image():
-    if 'image' not in request.files:
-        flash("No file part")
-        return redirect(request.url)
-    
-    file = request.files['image']
-    if file.filename == '':
-        flash("No selected file")
-        return redirect(request.url)
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
-        
-        # Perform object detection
-        img = cv2.imread(file_path)
-        results = model(img)
-        annotated_image = results[0].plot()  # Get annotated image
+@app.route('/start_webcam', methods=['POST'])
+def start_webcam():
+    global webcam_active
+    webcam_active = True
+    return jsonify({'status': 'started'})
 
-        # Save the annotated image
-        annotated_filename = f"annotated_{filename}"
-        annotated_path = os.path.join(UPLOAD_FOLDER, annotated_filename)
-        cv2.imwrite(annotated_path, annotated_image)
+@app.route('/stop_webcam', methods=['POST'])
+def stop_webcam():
+    global webcam_active
+    webcam_active = False
+    return jsonify({'status': 'stopped'})
 
-        # Store the filename of the uploaded image for displaying in the frontend
-        session["uploaded_image"] = annotated_filename
-        flash("✅ Image uploaded and detected successfully.")
-        return redirect(url_for('index'))
-    else:
-        flash("Invalid file type. Please upload a .jpg, .jpeg, .png, or .gif file.")
-        return redirect(url_for('index'))
+def generate_frames():
+    global webcam_active
+    cap = cv2.VideoCapture(0)
+
+    while webcam_active:
+        success, frame = cap.read()
+        if not success:
+            break
+
+        # Detect with YOLO
+        results = model(frame)
+        annotated = results[0].plot()
+
+        # Save each frame
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        filename = os.path.join(app.config['FRAME_FOLDER'], f"{timestamp}.jpg")
+        cv2.imwrite(filename, annotated)
+
+        # Encode to JPEG
+        ret, buffer = cv2.imencode('.jpg', annotated)
+        frame_bytes = buffer.tobytes()
+
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+    cap.release()
 
 if __name__ == '__main__':
     app.run(debug=True)
