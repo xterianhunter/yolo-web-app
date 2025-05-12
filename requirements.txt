@@ -1,6 +1,0 @@
-flask
-opencv-python
-ultralytics
-numpy
-Werkzeug
-gdown
