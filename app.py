@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response
+1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_from flask import Flask, render_template, request, jsonify, Response
 import cv2
 import os
 from ultralytics import YOLO
@@ -15,7 +15,7 @@ os.makedirs(app.config['FRAME_FOLDER'], exist_ok=True)
 
 # Step 1: Download model from Google Drive if not exists
 model_path = 'yolov11.pt'
-drive_file_id = 'YOUR_FILE_ID_HERE'  # Replace with your Google Drive file ID
+drive_file_id = '1cR_hmCQsmm3p-DRxz00wm534zzzkGXb_'  # Replace with your Google Drive file ID
 download_url = f'https://drive.google.com/uc?id={drive_file_id}'
 
 if not os.path.exists(model_path):
