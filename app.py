@@ -13,7 +13,18 @@ UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-model = YOLO("yolov11.pt")
+import os
+import urllib.request
+
+model_path = 'yolov11.pt'
+model_url = 'https://huggingface.co/username/yolo-model/resolve/main/yolov11.pt'
+
+if not os.path.exists(model_path):
+    print("Downloading model from Hugging Face...")
+    urllib.request.urlretrieve(model_url, model_path)
+    print("Download complete.")
+
+model = YOLO("model_path")
 
 # Global flag to manage real-time detection
 detecting = False
